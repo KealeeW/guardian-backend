@@ -62,6 +62,9 @@ async function resolveAdminOrg({ adminUserId, orgIdFromQuery }) {
     return org;
   }
 
+  return org;
+}
+
   // fallback → find org where admin is creator or staff
   const org = await Organization.findOne({
     $or: [{ createdBy: adminUserId }, { staff: adminUserId }],
@@ -131,7 +134,7 @@ async function linkCaretakerToOrgIfFreelance(caretakerDoc, orgDoc, options = {})
   const orgId = toId(orgDoc);
   const currentOrgId = toId(caretakerDoc.organization);
 
-  // freelance caretaker → assign org
+  // no org yet -> bind now
   if (!currentOrgId) {
     if (options.applyLink) {
       await User.updateOne({ _id: caretakerDoc._id }, { $set: { organization: orgId } });
@@ -144,7 +147,7 @@ async function linkCaretakerToOrgIfFreelance(caretakerDoc, orgDoc, options = {})
     };
   }
 
-  // already in same org
+  // already same org
   if (idsEqual(currentOrgId, orgId)) {
     return { linked: false, alreadyInOrg: true, movedFromOtherOrg: false, needsOrgLink: false };
   }
