@@ -11,16 +11,16 @@ const idsEqual = (a, b) => a && b && String(a) === String(b);
 function toId(x) {
   if (!x) return undefined;
 
-  // mongoose doc or plain object
+  // first handle mongoose docs / plain objects safely
   if (typeof x === 'object') {
     const v = x._id ?? x.id ?? x.orgId ?? x.userId;
     if (mongoose.isValidObjectId(v)) return String(v);
   }
 
-  // already valid ObjectId / 24-hex
+  // then handle raw ObjectId / raw 24-hex string
   if (mongoose.isValidObjectId(x)) return String(x);
 
-  // string representations (ObjectId("..."), new ObjectId("..."), raw hex)
+  // string representations like ObjectId("...")
   if (typeof x === 'string') {
     const m = x.match(
       /new\s+ObjectId\(["']([0-9a-fA-F]{24})["']\)|ObjectId\(["']([0-9a-fA-F]{24})["']\)|([0-9a-fA-F]{24})/
@@ -47,19 +47,18 @@ async function resolveAdminOrg({ adminUserId, orgIdFromQuery }) {
 
   // if orgId is explicitly passed
   if (orgIdFromQuery) {
-    const id = toId(orgIdFromQuery);
-    const org = id
-      ? await Organization.findOne({
-          _id: id,
-          $or: [{ createdBy: adminUserId }, { staff: adminUserId }],
-        })
-      : null;
-    if (!org) {
-      const e = new Error('Organization not found for admin');
-      e.status = 404;
-      throw e;
-    }
-    return org;
+  const id = toId(orgIdFromQuery);
+  const org = id
+    ? await Organization.findOne({
+        _id: id,
+        $or: [{ createdBy: adminUserId }, { staff: adminUserId }],
+      })
+    : null;
+
+  if (!org) {
+    const e = new Error('Organization not found for admin');
+    e.status = 404;
+    throw e;
   }
 
   return org;
@@ -115,20 +114,15 @@ function isUserInOrg(userDoc, orgDoc) {
 }
 
 // if caretaker has no org → link them to this org
-async function linkCaretakerToOrgIfFreelance(caretakerDoc, orgDoc, options = {}) {
-  if (!caretakerDoc) {
-    const e = new Error('linkCaretakerToOrgIfFreelance: caretaker is required');
-    e.status = 400;
-    throw e;
-  }
-  if (!orgDoc) {
-    const e = new Error('linkCaretakerToOrgIfFreelance: org is required');
+async function linkCaretakerToOrgIfFreelance(caretakerDoc, orgDoc) {
+  if (!caretakerDoc || !orgDoc) {
+    const e = new Error('caretaker and org are required');
     e.status = 400;
     throw e;
   }
 
   if (!userHasOrgField()) {
-    return { linked: false, alreadyInOrg: false, movedFromOtherOrg: false, needsOrgLink: false };
+    return { linked: false, alreadyInOrg: false, movedFromOtherOrg: false };
   }
 
   const orgId = toId(orgDoc);
@@ -136,24 +130,28 @@ async function linkCaretakerToOrgIfFreelance(caretakerDoc, orgDoc, options = {})
 
   // no org yet -> bind now
   if (!currentOrgId) {
-    if (options.applyLink) {
-      await User.updateOne({ _id: caretakerDoc._id }, { $set: { organization: orgId } });
-    }
-    return {
-      linked: Boolean(options.applyLink),
-      alreadyInOrg: false,
-      movedFromOtherOrg: false,
-      needsOrgLink: true,
-    };
+    await User.updateOne(
+      { _id: caretakerDoc._id },
+      { $set: { organization: orgId } }
+    );
+    return { linked: true, alreadyInOrg: false, movedFromOtherOrg: false };
   }
 
   // already same org
   if (idsEqual(currentOrgId, orgId)) {
-    return { linked: false, alreadyInOrg: true, movedFromOtherOrg: false, needsOrgLink: false };
+    return { linked: false, alreadyInOrg: true, movedFromOtherOrg: false };
   }
 
-  // caretaker already belongs elsewhere
-  return { linked: false, alreadyInOrg: false, movedFromOtherOrg: true, needsOrgLink: false };
+  // recovery: if user is actually in org.staff, sync organization instead of rejecting
+  if (Array.isArray(orgDoc.staff) && orgDoc.staff.some(id => idsEqual(id, caretakerDoc._id))) {
+    await User.updateOne(
+      { _id: caretakerDoc._id },
+      { $set: { organization: orgId } }
+    );
+    return { linked: true, alreadyInOrg: false, movedFromOtherOrg: false, repaired: true };
+  }
+
+  return { linked: false, alreadyInOrg: false, movedFromOtherOrg: true };
 }
 
 /* ------------------------- Staff add/remove helpers ------------------------ */
