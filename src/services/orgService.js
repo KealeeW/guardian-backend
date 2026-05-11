@@ -37,7 +37,7 @@ const userHasOrgField = () => Boolean(User?.schema?.path?.('organization'));
 
 /* -------------------------- Org resolution (admin) ------------------------ */
 
-// find org for admin → by query orgId or by staff/createdBy
+// find org for admin -> by query orgId or by staff/createdBy
 async function resolveAdminOrg({ adminUserId, orgIdFromQuery }) {
   if (!adminUserId) {
     const e = new Error('resolveAdminOrg: adminUserId is required');
@@ -62,10 +62,7 @@ async function resolveAdminOrg({ adminUserId, orgIdFromQuery }) {
     return org;
   }
 
-  return org;
-}
-
-  // fallback → find org where admin is creator or staff
+  // fallback -> find org where admin is creator or staff
   const org = await Organization.findOne({
     $or: [{ createdBy: adminUserId }, { staff: adminUserId }],
   });
@@ -114,7 +111,7 @@ function isUserInOrg(userDoc, orgDoc) {
   return Array.isArray(orgDoc.staff) && orgDoc.staff.some((id) => idsEqual(id, userId));
 }
 
-// if caretaker has no org → link them to this org
+// if caretaker has no org -> link them to this org
 async function linkCaretakerToOrgIfFreelance(caretakerDoc, orgDoc, options = {}) {
   if (!caretakerDoc) {
     const e = new Error('linkCaretakerToOrgIfFreelance: caretaker is required');
