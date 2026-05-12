@@ -198,11 +198,6 @@ exports.createPatient = async (req, res) => {
       });
     }
 
-    const org = await findAdminOrg(req.user._id, req.query.orgId);
-    if (!org) {
-      return res.status(404).json({ message: 'Organization not found for admin' });
-    }
-
     const adminOrg = await findAdminOrg(req.user._id, req.query.orgId);
     if (!adminOrg) return res.status(404).json({ message: 'Organization not found for admin' });
 
@@ -252,8 +247,8 @@ exports.createPatient = async (req, res) => {
       fullname,
       dateOfBirth: new Date(dateOfBirth),
       gender,
-      organization: org._id,
-      caretaker: refreshedCaretaker._id,
+      organization: orgId,
+      caretaker: caretaker._id,
       assignedNurses: nurse ? [nurse._id] : [],
       assignedDoctor: doctor ? doctor._id : null,
       profilePhoto: profilePhoto || image || null,
@@ -293,7 +288,7 @@ exports.createPatient = async (req, res) => {
 /* ---------------------------------------------------------------------- */
 /**
  * @swagger
- * /api/v1/admin/patients/{id}/assign:
+ * /api/v1/admin/patients/{id}/reassign:
  *   put:
  *     summary: Update patient staff assignments
  *     description: Assigns or reassigns a caretaker, nurse, or doctor to an existing patient. At least one of `nurseId`, `doctorId`, or `caretakerId` should be provided.
