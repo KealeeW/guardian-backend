@@ -436,12 +436,13 @@ exports.reassign = async (req, res) => {
 
       const currentNurseIds = (patient.assignedNurses || []).map(String);
       const nextNurseId = String(nurse._id);
-      currentNurseIds
-        .filter((nId) => nId !== nextNurseId)
-        .forEach((nId) => reverseLinksToRemove.add(nId));
-      if (!currentNurseIds.includes(nextNurseId)) reverseLinksToAdd.add(nextNurseId);
-
-      updates.assignedNurses = [toObjectId(nurse._id)];
+      if (!currentNurseIds.includes(nextNurseId)) {
+        reverseLinksToAdd.add(nextNurseId);
+        updates.assignedNurses = [
+          ...(patient.assignedNurses || []).map((nId) => toObjectId(nId)),
+          toObjectId(nurse._id),
+        ];
+      }
     }
 
     // Assign doctor
