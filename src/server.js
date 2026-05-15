@@ -7,21 +7,46 @@ const multer = require('multer');
 const http = require('http');
 const socketIO = require('socket.io');
 
+const cors = require('cors');
+
+
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const { setEmit } = require('../socket');
 
 const app = express();
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  }
+//cors fix
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+app.options('*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.sendStatus(204);
 });
+
+// Create uploads directory locally only (Vercel filesystem is read-only)
+// if (!process.env.VERCEL) {
+//   const fs = require('fs');
+//   if (!fs.existsSync('uploads')) {
+//     fs.mkdirSync('uploads');
+//   }
+// }
+
+const storage = process.env.VERCEL
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, 'uploads/');
+      },
+      filename: (req, file, cb) => {
+        const uniqueName = `${Date.now()}-${file.originalname}`;
+        cb(null, uniqueName);
+      }
+    });
 
 exports.upload = multer({ storage });
 
@@ -82,6 +107,7 @@ const blockScriptRequests = (req, res, next) => {
 };
 
 // app.use(blockScriptRequests);
+app.set('trust proxy', 1);
 
 const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
@@ -136,6 +162,7 @@ const userRoutes = require('./routes/user');
 const caretakerRoutes = require('./routes/caretakerRoutes');
 const nurseRoutes = require('./routes/nurseRoutes');
 const patientRoutes = require('./routes/patientRoutes');
+const healthRecordRoutes = require('./routes/healthRecordRoutes');
 const wifiCSIRoutes = require('./routes/wifiCSI');
 const activityRecognitionRoutes = require('./routes/activityRecognition');
 const alertsRoutes = require('./routes/alerts');
@@ -151,6 +178,7 @@ const resourceRoutes = require('./routes/resourceRoutes');
 app.use('/api/v1/auth', userRoutes);
 app.use('/api/v1/caretaker', caretakerRoutes);
 app.use('/api/v1/nurse', nurseRoutes);
+app.use('/api/v1/patient', healthRecordRoutes);
 app.use('/api/v1/patients', patientRoutes);
 app.use('/api/v1/wifi-csi', wifiCSIRoutes);
 app.use('/api/v1/activity-recognition', activityRecognitionRoutes);
@@ -259,6 +287,8 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
+
+
 
 const server = http.createServer(app);
 const io = socketIO(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
