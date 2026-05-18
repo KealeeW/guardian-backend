@@ -1,6 +1,5 @@
 pipeline {
     agent any
-
     environment {
         PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
         IMAGE_NAME = 'guardian-backend'
@@ -8,15 +7,12 @@ pipeline {
         CONTAINER_NAME = 'guardian-staging'
         DOCKER_USER = 'kealeew'
     }
-
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/KealeeW/guardian-backend.git'
             }
         }
-
         stage('Build') {
             steps {
                 echo "Building Docker image ${IMAGE_NAME}:${IMAGE_TAG}"
@@ -24,7 +20,6 @@ pipeline {
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest ."
             }
         }
-
         stage('Test') {
             steps {
                 echo 'Running automated Mocha/Chai tests'
@@ -38,7 +33,6 @@ pipeline {
                 '''
             }
         }
-
         stage('Code Quality') {
             steps {
                 echo 'Running ESLint code quality analysis'
@@ -46,14 +40,12 @@ pipeline {
                 sh 'npx eslint src/ --ext .js --env node --env es2021 --rule "no-unused-vars: warn" --rule "semi: warn" --format stylish || true'
             }
         }
-
         stage('Security') {
             steps {
                 echo 'Running npm audit security scan'
                 sh 'npm audit || true'
             }
         }
-
         stage('Deploy') {
             steps {
                 echo 'Deploying to staging environment'
@@ -74,7 +66,6 @@ pipeline {
                 echo 'Application deployed to staging on port 3001'
             }
         }
-
         stage('Release') {
             steps {
                 echo "Pushing ${IMAGE_NAME}:${IMAGE_TAG} to Docker Hub"
@@ -94,7 +85,6 @@ pipeline {
             }
         }
     }
-
     post {
         success {
             echo "Pipeline completed successfully - ${IMAGE_NAME}:${IMAGE_TAG} is live"
